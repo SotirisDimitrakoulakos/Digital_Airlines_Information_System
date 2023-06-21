@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 from flask import Flask, request, jsonify, Response
-from datetime import timedelta, datetime
+from datetime import timedelta
 import json
 import uuid
 
@@ -88,7 +88,7 @@ def log_in():
                         "multiple times (invalid)", status=400, mimetype='application/json')
 
 
-# Search Flights
+# Search Flights (for both Simple Users and Administrators)
 @app.route('/search_flights', methods=['GET'])
 def search_flights():
     userID = request.headers.get('authorization')
@@ -175,15 +175,21 @@ def show_flight(id):
         return Response("Bad Header Request", status=500, mimetype='application/json')
     else:
         if userID in live_sessions['admin'] or userID in live_sessions['simple']:
-            if flights.find({"_id": str('id')}).count() == 1:
-                i = flights.find_one({"_id": 'id'})
+            if flights.find({"_id": str(id)}).count() == 1:
+                i = flights.find_one({"_id": (id)})
                 flight = {"_id": str(i['_id']), "conducting_date": i['conducting_date'],
                           "from_airport": i['from_airport'], "to_airport": i['to_airport'],
                           "ticket_num": {"business": i['ticket_num']['business'],
                                        "economy": i['ticket_num']['economy']},
                           "ticket_price": {"business": i['ticket_price']['business'],
                                          "economy": i['ticket_price']['economy']}}
-                return Response("Flight:" + jsonify(flight), status=200, mimetype='application/json')
+                return Response("Flight:" + jsonify(flight) + "\n\nDeparture Airport: " +
+                                str(flight['from_airport']) + "\nFinal Destination Airport: " +
+                                str(flight['to_airport']) + "\nNumber of tickets available: \n\tBusiness Tickets: " +
+                                str(flight['ticket_num']['business']) + "\n\tEconomy Tickets: " +
+                                str(flight['ticket_num']['economy']) + "\nPrice of tickets: \n\tBusiness Tickets: " +
+                                str(flight['ticket_price']['business']) + "\n\tEconomy Tickets: " +
+                                str(flight['ticket_price']['economy']), status=200, mimetype='application/json')
             else:
                 return Response("No valid flight with this id", status=500, mimetype='application/json')
         else:
@@ -207,16 +213,28 @@ def make_reservation():
     if userID == None:
         return Response("Bad Header Request", status=500, mimetype='application/json')
 
-    if not "_id" in data or not "name" in data or not "sirname" in data or not "passport_number" in data or \
+    if not "fid" in data or not "name" in data or not "sirname" in data or not "passport_number" in data or \
             not "date_of_birth" in data or not "email" in data or not "ticket_type" in data:
         return Response("Information Incomplete", status=500, mimetype="application/json")
 
     if userID in live_sessions['admin'] or userID in live_sessions['simple']:
-        ticket_res = {"flight_id": str(data['_id']), "name": data['name'], "sirname": data['sirname'],
-                      "passport_number": data['passport_number'], "date_of_birth": data['date_of_birth'],
-                      "email": data['email'], "ticket_type": data['ticket_type']}
-        reservations.insert_one(ticket_res)
-        return Response("Ticket Reservation was made", status=200, mimetype='application/json')
+        if flights.find({"_id": str(data['fid'])}).count() == 1:
+            my_flight = flights.find_one({"_id": str(data['fid'])})
+            if data['ticket_type'] == "business":
+                flights.update_one({"_id": str(my_flight['_id'])},
+                                   {'$set': {"ticket_num": {"business": int(my_flight['ticket_num']['business']) - 1}}})
+            elif data['ticket_type'] == "economy":
+                flights.update_one({"_id": str(my_flight['_id'])},
+                                   {'$set': {"ticket_num": {"economy": int(my_flight['ticket_num']['economy']) - 1}}})
+            else:
+                Response("Invalid ticket type", status=500, mimetype='application/json')
+            ticket_res = {"flight_id": str(data['fid']), "name": data['name'], "sirname": data['sirname'],
+                          "passport_number": data['passport_number'], "date_of_birth": data['date_of_birth'],
+                          "email": data['email'], "ticket_type": data['ticket_type']}
+            reservations.insert_one(ticket_res)
+            return Response("Ticket Reservation was made", status=200, mimetype='application/json')
+        else:
+            return Response("No valid flight with this id", status=500, mimetype='application/json')
     else:
         return Response("Rogue User!", status=401, mimetype='application/json')
 
@@ -258,8 +276,8 @@ def show_reservation(id):
         return Response("Bad Header Request", status=500, mimetype='application/json')
     else:
         if userID in live_sessions['admin'] or userID in live_sessions['simple']:
-            if reservations.find({"_id": str('id')}).count() == 1:
-                i = reservations.find_one({"_id": 'id'})
+            if reservations.find({"_id": str(id)}).count() == 1:
+                i = reservations.find_one({"_id": str(id)})
                 flightID = i['flight_id']
                 if flights.find({"_id": str(flightID)}).count() == 1:
                     j = flights.find_one({"_id": str(flightID)})
@@ -268,8 +286,16 @@ def show_reservation(id):
                                            "sirname": i['sirname'], "passport_number": i['passport_number'],
                                            "date_of_birth": i['date_of_birth'], "email": i['email'],
                                            "ticket_type": i['ticket_type']}
-                    return Response("Reservation Details:" + jsonify(reservation_details), status=200,
-                                    mimetype='application/json')
+                    return Response("Reservation Details:" + jsonify(reservation_details) + "\n\nDeparture Airport: " +
+                                    str(reservation_details['from_airport']) + "\nFinal Destination Airport: " +
+                                    str(reservation_details['to_airport']) + "\nConducting Date: " +
+                                    str(reservation_details['conducting_date']) + "\nName: " +
+                                    str(reservation_details['name']) + "\nSir Name: " +
+                                    str(reservation_details['sirname']) + "\nPassport Number: " +
+                                    str(reservation_details['passport_number']) + "\nDate of Birth: " +
+                                    str(reservation_details['date_of_birth']) + "\nE-mail: " +
+                                    str(reservation_details['email']) + "\nTicket Type: " +
+                                    str(reservation_details['ticket_type']), status=200, mimetype='application/json')
                 else:
                     return Response("No valid flight with this id", status=500, mimetype='application/json')
             else:
@@ -290,17 +316,17 @@ def cancel_reservation(id):
         return Response("Bad Header Request", status=500, mimetype='application/json')
     else:
         if userID in live_sessions['admin'] or userID in live_sessions['simple']:
-            if reservations.find({"_id": str('id')}).count() == 1:
-                i = reservations.find_one({"_id": 'id'})
+            if reservations.find({"_id": str(id)}).count() == 1:
+                i = reservations.find_one({"_id": str(id)})
                 flightID = i['flight_id']
                 if flights.find({"_id": str(flightID)}).count() == 1:
                     my_flight = flights.find_one({"_id": str(flightID)})
                     if i['ticket_type'] == "business":
                         flights.update_one({"_id": str(flightID)}, {
-                            '$set': {"ticket_num": {"business": int(my_flight['ticket_num']['business'])-1}}})
+                            '$set': {"ticket_num": {"business": int(my_flight['ticket_num']['business']) + 1}}})
                     elif i['ticket_type'] == "economy":
                         flights.update_one({"_id": str(flightID)}, {
-                            '$set': {"ticket_num": {"economy": int(my_flight['ticket_num']['economy']) - 1}}})
+                            '$set': {"ticket_num": {"economy": int(my_flight['ticket_num']['economy']) + 1}}})
                     else:
                         Response("Invalid ticket type", status=500, mimetype='application/json')
                     for j, res in enumerate(reservations):
@@ -316,7 +342,7 @@ def cancel_reservation(id):
             return Response("Rogue User!", status=401, mimetype='application/json')
 
 
-# Admin Function: Make Flight
+# Administrator Function: Make Flight
 @app.route('/make_flight', methods=['POST'])
 def make_flight():
     userID = request.headers.get('authorization')
@@ -352,7 +378,7 @@ def make_flight():
         return Response("Rogue User!", status=401, mimetype='application/json')
 
 
-# Admin Function: Update Flight Ticket Price
+# Administrator Function: Update Flight Ticket Price
 @app.route('/update_price', methods=['PATCH'])
 def update_price():
     userID = request.headers.get('authorization')
@@ -384,6 +410,81 @@ def update_price():
                         status=401, mimetype='application/json')
     else:
         return Response("Rogue User!", status=401, mimetype='application/json')
+
+
+# Administrator Function: Delete Flight
+@app.route('/delete_flight/<id>', methods=['DELETE'])
+def delete_flight(id):
+    userID = request.headers.get('authorization')
+
+    if id == None:
+        return Response("Bad Request", status=500, mimetype='application/json')
+
+    if userID == None:
+        return Response("Bad Header Request", status=500, mimetype='application/json')
+    else:
+        if userID in live_sessions['admin']:
+            if flights.find({"_id": str(id)}).count() == 1:
+                if reservations.find({"flight_id": str(id)}).count() > 0:
+                    Response("Reservation for this flight exists.", status=500, mimetype='application/json')
+                else:
+                    for j, fl in enumerate(flights):
+                        if fl['_id'] == id:
+                            del fl[j]
+                    return Response("Flight Deleted", status=200, mimetype='application/json')
+            else:
+                return Response("No valid flight with this id", status=500, mimetype='application/json')
+        elif userID in live_sessions['simple']:
+            return Response("Simple Users don't have the authority to use this function.",
+                            status=401, mimetype='application/json')
+        else:
+            return Response("Rogue User!", status=401, mimetype='application/json')
+
+
+# Administrator Function: Display Flight Details
+@app.route('/display_flight/<id>', methods=['GET'])
+def display_flight(id):
+    userID = request.headers.get('authorization')
+
+    if id == None:
+        return Response("Bad Request", status=500, mimetype='application/json')
+
+    if userID == None:
+        return Response("Bad Header Request", status=500, mimetype='application/json')
+    else:
+        if userID in live_sessions['admin']:
+            if flights.find({"_id": str(id)}).count() == 1:
+                i = flights.find_one({"_id": (id)})
+                reserved_tickets_bis = reservations.find({"$and": [{"flight_id": str(id)},
+                                                                   {"ticket_type": "business"}]}).count()
+                reserved_tickets_eco = reservations.find({"$and": [{"flight_id": str(id)},
+                                                                   {"ticket_type": "economy"}]}).count()
+                total_tickets_bis = int(i['ticket_num']['business']) + reserved_tickets_bis
+                total_tickets_eco = int(i['ticket_num']['economy']) + reserved_tickets_eco
+                total_tickets_all = total_tickets_bis + total_tickets_eco
+                my_reservations = reservations.find({"flight_id": str(id)})
+                res_list = []
+                for r in my_reservations:
+                    res = {"name": r['name'], "sirname": r['sirname'], "ticket_type": r['ticket_type']}
+                    res_list.append(res)
+                return Response("Departure Airport: " + str(i['from_airport']) + "\nFinal Destination Airport: " +
+                                str(i['to_airport']) + "\nTotal Number of All Tickets:" + str(total_tickets_all) +
+                                "\n\tTotal Number of Business Tickets: " + str(total_tickets_bis) +
+                                "\n\tTotal Number of Economy Tickets: " + str(total_tickets_eco) +
+                                "\nTicket Price: \n\tBusiness Tickets Price: " + str(i['ticket_price']['business']) +
+                                "\n\tEconomy Tickets Price: " + str(i['ticket_price']['economy']) +
+                                "\nAvailable Number of Tickets: " + str(int(i['ticket_num']['business']) +
+                                int(i['ticket_num']['economy'])) + "\n\tAvailable Number of Business Tickets: " +
+                                str(i['ticket_num']['business']) + "\n\tAvailable Number of Economy Tickets: " +
+                                str(i['ticket_num']['economy']) + "\n\nList of Reservation Details:\n" + jsonify(res_list),
+                                status=200, mimetype='application/json')
+            else:
+                return Response("No valid flight with this id", status=500, mimetype='application/json')
+        elif userID in live_sessions['simple']:
+            return Response("Simple Users don't have the authority to use this function.",
+                            status=401, mimetype='application/json')
+        else:
+            return Response("Rogue User!", status=401, mimetype='application/json')
 
 
 # User Log-out
