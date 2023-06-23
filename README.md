@@ -12,9 +12,9 @@
 3. Execute the command "docker-compose up -d" (May take a few seconds).
 4. Make your Database:
     1. If you want to use the data that are provided in the JSON files (users, reservations, flights), then:
-           1. Execute the command "docker cp flask/data/users.json mongodb:/users.json && docker cp flask/data/flights.json mongodb:/flights.json && docker cp
+       1. Execute the command "docker cp flask/data/users.json mongodb:/users.json && docker cp flask/data/flights.json mongodb:/flights.json && docker cp
            flask/data/reservations.json mongodb:/reservations.json"
-           2. Then, execute the command "docker exec -it mongodb mongoimport --db=DigitalAirlines --collection=Users --file=users.json && docker exec -it mongodb
+       2. Then, execute the command "docker exec -it mongodb mongoimport --db=DigitalAirlines --collection=Users --file=users.json && docker exec -it mongodb
            mongoimport --db=DigitalAirlines --collection=Flights --file=flights.json && docker exec -it mongodb mongoimport --db=DigitalAirlines --
            collection=Reservations --file=reservations.json
        
@@ -108,10 +108,10 @@ Each function checks if the given data is valid (which is passed through, with e
 
 5. make_reservation (for Simple Users and Administrators):
 
-   Counts all the documents in the Flights collection which have both the given fid. If the result is 1, then it finds that
+   Counts all the documents in the Reservations collection which have the given fid. If the result is 1, then it finds that
    document, else it means there are either 0 or more than one documents with these credentials, so it responds accordingly. Then, if the ticket_type of this
    document is business, it decreases the ticket_num_business by 1 (by updating the document with the given fid), else if the ticket_type is economy, it
-   decreases the ticcket_num_economy by 1 (by updating the document with the given fid). Afterwards, it creates an entry (with the
+   decreases the ticket_num_economy by 1 (by updating the document with the given fid). Afterwards, it creates an entry (with the
    needed info), which it inserts in the Reservations collection. If everything is ok, it returns a response with the requested data and response code status=200.
 
     ![make_res1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/2fe84972-27b5-468d-b3db-9759db1c6da9)
@@ -134,7 +134,7 @@ Each function checks if the given data is valid (which is passed through, with e
 
    Counts all the documents in the Reservations collection which have both the given id. If the result is 1, then it finds that
    document, else it means there are either 0 or more than one documents with these credentials, so it responds accordingly. It does the same for the fid it
-   extracts from that documetn, to check if the flight id is valid. Then, it also fins the corresponding document from the flights collection, so it can respond
+   extracts from that document, to check if the flight id is valid. Then, it also fins the corresponding document from the flights collection, so it can respond
    with all the needed info. So, it creates an entry (with the needed info), which it puts in the response, both all together and seperately. If everything is
    ok, it returns a response with the requested data and response code status=200.
 
@@ -143,6 +143,13 @@ Each function checks if the given data is valid (which is passed through, with e
 
 
 8. cancel_reservation (for Simple Users and Administrators):
+
+   Counts all the documents in the Reservations collection which have the given my_id. If the result is 1, then it finds that
+   document, else it means there are either 0 or more than one documents with these credentials, so it responds accordingly. It does the same for the fid it
+   extracts from that document, to check if the flight id is valid. Then, if the ticket_type of this
+   document is business, it increases the ticket_num_business by 1 (by updating the document with the given fid), else if the ticket_type is economy, it
+   increases the ticket_num_economy by 1 (by updating the document with the given fid). Afterwards, it deletes the document from the reservations collection with
+   the given id and if everything is ok, it returns a response with response code status=200.
 
     ![cancel_res1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/2644280f-37bf-4f1d-9729-486923e25802)
 
@@ -159,12 +166,22 @@ Each function checks if the given data is valid (which is passed through, with e
 
 9. make_flight (for Administrators):
 
+   First it checks if the unique id from the header is in admin in the live_sessions. Else it doesn't allow the procedure to continue and it responds
+   accordingly. Afterwards, it creates an entry (with the needed info), which it inserts in the Flights collection. If everything is ok, it returns a response
+   with the requested data and response code status=200.
+
     ![make_flight1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/171b34e5-0777-443b-b1dd-e4a383244158)
 
     ![make_flight2](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/73159b57-5be7-4a37-b357-2b156a181455)
 
 
 10. update_price (for Administrators):
+
+   First it checks if the unique id from the header is in admin in the live_sessions. Else it doesn't allow the procedure to continue and it responds
+   accordingly. Afterwards, if business_price is in the data, it updates the ticket_price_business in the document with the given id (replacing its value with 
+   the one in business_price), else if economy_price is in the data, it updates the ticket_price_economy in the document with the given id (replacing its value 
+   with the one in economy_price), else if both are in the data, it updates both. If everything is ok, it returns a response with the requested data and response 
+   code status=200.
 
     ![update_price1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/70b3a2e7-6191-437e-bd24-dae6b8e8ae3a)
 
@@ -173,6 +190,13 @@ Each function checks if the given data is valid (which is passed through, with e
 
 11. delete_flight (for Administrators):
 
+   First it checks if the unique id from the header is in admin in the live_sessions. Else it doesn't allow the procedure to continue and it responds
+   accordingly. Afterwards, it counts all the documents in the Flights collection which have the given my_id. If the result is 1, then it finds that
+   document, else it means there are either 0 or more than one documents with these credentials, so it responds accordingly. After it finds the document, it 
+   counts the reservations which have as flight_id, the id of our flight. If the number is greater than zero it means that at least one reservation for this 
+   flight exists and it can't deleted. But, if it is not greater than zero, it deletes the flight with the given id from thr Flights collection. If everything is 
+   ok, it returns a response with the requested data and response code status=200.
+
     ![delete_flight1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/cb35e4a9-53c7-4ea8-8600-d8bf52045f32)
 
     ![delete_flight2](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/51f70109-4432-41f2-8ca1-df94cd570137)
@@ -180,10 +204,27 @@ Each function checks if the given data is valid (which is passed through, with e
 
 12. display_flight (for Administrators):
 
+   First it checks if the unique id from the header is in admin in the live_sessions. Else it doesn't allow the procedure to continue and it responds
+   accordingly. Afterwards, it counts all the documents in the Flights collection which have the given my_id. If the result is 1, then it finds that
+   document, else it means there are either 0 or more than one documents with these credentials, so it responds accordingly. After it finds the document, it 
+   counts all the documents in reservations with the given id as flight_id and ticket_type: "business" and puts it into a variable. It does the same for the ones 
+   with ticket_type: "economy".  These variables have the number of acquired tickets for these ticket types for this flight.counts the reservations which have as 
+   flight_id, the id of our flight. Afterwards, it gets the number of available business and available economy tickets from the flight document it found and adds 
+   each of them (with the variables we previously found) into other variables, to calculate the total number of tickets for each ticket type. Then it finds all 
+   the documents with the given id as their flight_id and puts the returned cursor in my_reservations. It then iterates through it with a for loop and
+   for each document, it creates and appends a diffrent entry (with the needed info) to the res_list. In the response it returns, it has all the needed info 
+   seperately (Departure Airport, Final Destination Airport, Total Number of All Tickets, etc.), as well as the res_list as it is in the end (turned into a 
+   string of course, since response only accepts strings). If everything is ok, it returns a response with the requested data and response code status=200.
+
     ![diplay_flight1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/0deb45ec-872d-446f-bb06-c609918d4c4f)
 
 
 13. log_out (for Simple Users and Administrators):
+
+    If the unique user id from the header is in live_sessions['admin'], then it deletes it from there, from the dictionary (session ends, user not logged in
+    anymore), else if is in live_sessions['simple'], then it deletes it from there, from the dictionary. If everything is ok, it returns a response with the
+    requested data and response code status=200.
+
 
     ![log_out1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/185c151c-a0f5-4476-bc3d-3daf4ed39e4f)
 
@@ -192,7 +233,15 @@ Each function checks if the given data is valid (which is passed through, with e
     ![log_out3](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/951063ad-5a2e-4b48-a3b9-d78c68aa960e)
 
 
-14. delete_account (for Simple Users and Administrators):
+16. delete_account (for Simple Users and Administrators):
+
+    If the unique user id from the header is in live_sessions['admin'], then it finds the logged in user's email from the value of live_sessions['admin']
+    [userID], deletes it from live_sessions['admin'] from the dictionary (logs out / session ends, user not logged in
+    anymore) and deletes the document with this email from the users collection. Else, if the unique user id from the header is in live_sessions['simple'], then
+    it finds the logged in user's email from the value of live_sessions['simple'][userID], deletes it from live_sessions['simple'] from the dictionary (logs out
+    / session ends, user not logged in anymore) and deletes the document with this email from the users collection, from the dictionary (session ends, user not
+    logged in anymore). If everything is ok, it returns a response with the
+    requested data and response code status=200.
 
     ![delete_account1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/cac93be5-18ef-4b0e-b47e-bed5f8612f8f)
 
