@@ -17,6 +17,7 @@
            2. Then, execute the command "docker exec -it mongodb mongoimport --db=DigitalAirlines --collection=Users --file=users.json && docker exec -it mongodb
            mongoimport --db=DigitalAirlines --collection=Flights --file=flights.json && docker exec -it mongodb mongoimport --db=DigitalAirlines --
            collection=Reservations --file=reservations.json
+       
        (If you have a Duplicate Key Error, it means some IDs from the JSON files have already been used. Change the IDs in the JSON files into valid, non-used
         ones, save changes and repeat step 4)
      3. If you want empty collections to add data to them yourself, then:
