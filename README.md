@@ -189,9 +189,9 @@ Each function checks if the given data is valid (which is passed through, with e
    with the one in economy_price), else if both are in the data, it updates both. If everything is ok, it returns a response with the requested data and response 
    code status=200.
 
-![update_price1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/3ca7202e-2c52-4ec9-babf-f9eb32e3cab6)
+   ![update_price1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/3ca7202e-2c52-4ec9-babf-f9eb32e3cab6)
 
-![update_price2](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/a293d4e3-c611-42a5-99e2-97b0ac3a05f0)
+   ![update_price2](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/a293d4e3-c611-42a5-99e2-97b0ac3a05f0)
 
 
 11. delete_flight (for Administrators):
@@ -203,9 +203,9 @@ Each function checks if the given data is valid (which is passed through, with e
    flight exists and it can't deleted. But, if it is not greater than zero, it deletes the flight with the given id from thr Flights collection. If everything is 
    ok, it returns a response with the requested data and response code status=200.
 
-![delete_flight1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/8f9be2c5-d4f1-4eec-8bf2-d467d0f4534c)
+   ![delete_flight1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/8f9be2c5-d4f1-4eec-8bf2-d467d0f4534c)
 
-![delete_flight2](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/b839198e-e302-4577-8f2c-a6d562041b93)
+   ![delete_flight2](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/b839198e-e302-4577-8f2c-a6d562041b93)
 
 
 12. display_flight (for Administrators):
@@ -222,7 +222,7 @@ Each function checks if the given data is valid (which is passed through, with e
    seperately (Departure Airport, Final Destination Airport, Total Number of All Tickets, etc.), as well as the res_list as it is in the end (turned into a 
    string of course, since response only accepts strings). If everything is ok, it returns a response with the requested data and response code status=200.
 
-![diplay_flight1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/e016d599-e607-4dd2-bea9-4174bd200e18)
+   ![diplay_flight1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/e016d599-e607-4dd2-bea9-4174bd200e18)
 
 
 13. log_out (for Simple Users and Administrators):
