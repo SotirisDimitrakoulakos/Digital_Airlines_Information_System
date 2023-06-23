@@ -254,3 +254,5 @@ Each function checks if the given data is valid (which is passed through, with e
     ![delete_account2](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/07c40370-9cd5-49e5-9264-d8d26497a0ce)
 
 
+
+# *Thank you for using my projcet!*
