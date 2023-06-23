@@ -42,6 +42,13 @@
        "email":"jdtotow@gmail.com","entr_password":"complicated_password789",
        "date_of_birth":[{"day":{"$numberInt":"01"},"month":"January","year":{"$numberInt":"1999"}}],
        "origin_country":"Greece","passport_number":{"$numberInt":"555555555"},"category":"administrator"})"
-   [ Us 3 as Admins ;) ]
+     - [ Us 3 as Admins ;) ]
 7. Make Requests and see Responses! The Postman Software was used in the following example.
-   
+
+
+# Analysis and Examples:
+
+After adding ./data to the pyhton module serach path, we then connect to our local MongoDB (we get its hostname from localhost and we create a MongoClient).
+
+*Internal Function create_session :
+It is used in the log_in function. This function takes a given email and a boolean value role_admin as parameters. When it is called, it generates a uinque random id with uuid.uuid4, which is converted to a string. If role_admin is True (meaning a admin is logging in), then in the live_sessions dictionary, in the element with key "admin", an element is added with the unique id as its key and the email as its value. The correspoding squence (in the element with key "admin") happens if role_admin is False (meaning a simple user is logging in).
