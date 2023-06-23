@@ -16,10 +16,10 @@
            flask/data/reservations.json mongodb:/reservations.json"
            2. Then, execute the command "docker exec -it mongodb mongoimport --db=DigitalAirlines --collection=Users --file=users.json && docker exec -it mongodb
            mongoimport --db=DigitalAirlines --collection=Flights --file=flights.json && docker exec -it mongodb mongoimport --db=DigitalAirlines --
-           collection=Reservations --file=reservations.json"
+           collection=Reservations --file=reservations.json
        (If you have a Duplicate Key Error, it means some IDs from the JSON files have already been used. Change the IDs in the JSON files into valid, non-used
         ones, save changes and repeat step 4)
-     2. If you want empty collections to add data to them yourself, then:
+     3. If you want empty collections to add data to them yourself, then:
            1. Delete all content from the JSON files and save your changes.
            2. Execute the command "docker cp flask/data/users.json mongodb:/users.json && docker cp flask/data/flights.json mongodb:/flights.json && docker cp
            flask/data/reservations.json mongodb:/reservations.json"
@@ -53,12 +53,28 @@ After adding ./data to the pyhton module serach path, we then connect to our loc
 *Internal Function create_session :
 It is used in the log_in function. This function takes a given email and a boolean value role_admin as parameters. When it is called, it generates a uinque random id with uuid.uuid4, which is converted to a string. If role_admin is True (meaning a admin is logging in), then in the live_sessions dictionary, in the element with key "admin", an element is added with the unique id as its key and the email as its value. The correspoding squence (in the element with key "admin") happens if role_admin is False (meaning a simple user is logging in).
 
+*NOTE*: Some unique IDs may differ, because the tests were executed at different stages of the project, different times and after deleting/making a lot of images and containers of the services, as well as adding/removing a lot of data. Their purpose is just to shiw that the functions work and how they work.
+
+Each function checks if the given data is valid (which is passed through, with either URL or JSON), if the needed elements in the data exist, if the user ID exists in the live_sessions (if not it is a Rogue User) and if it is a simple user or an admin (except sign_up and log_in). In each case, it returns a response with the appropriate response code (500, 401, etc.), depending on the problem. If everything is ok, it returns a response with the requested data and response code status=200.
+
 1. sign_up (for Simple Users and Administrators):
 
+   Counts all the documents in the Users collection which have the same given email or the same given username. If both results are 0, then it creates a simple
+   user dictionary, with all the data given and it inserts it into the Users collection. If everything is ok, it returns a response with the requested data and
+   response code status=200.
+
+   Example:
    ![sign_up1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/ae1c523f-9590-48db-84dc-20c857173109)
 
 
 2. log_in (for Simple Users and Administrators):
+
+   Counts all the documents in the Users collection which have both the same given email and the same given entr_password. If the result is 1, then it finds that
+   document, else it means there are either 0 or more than one documents with these credentials, so it responds accordingly. If its category field is
+   "administrator", then it calls the create_session function, with the given email and True as its parameters, else if it is
+   "simple", then it calls the create_session function, with the given email and False as its parameters. This function returns the unique ID that was made. Which
+   we put to the Response, so the user can put it in the next requests' header "user_ID". If everything is ok, it returns a response with the requested data and
+   response code status=200.
 
    ![log_in1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/d304a03e-aebe-4ed9-a264-5e1a67f8cd03)
 
@@ -68,6 +84,12 @@ It is used in the log_in function. This function takes a given email and a boole
    
 3. search_flights (for Simple Users and Administrators):
 
+   If  "from_airport", "to_airport" and "conducting_date" exists in the given data, then it counts all the documents which have these specific details at the
+   same time and if there more than 0, then it finds those documents and puts the returned cursor in my_flights. It then iterates through it with a for loop and
+   for each document, it creates and appends a diffrent entry (with the needed info) to the flight_list, which it returns through the response. It does the same
+   thing if there is only "from_airport", "to_airport" in the data, "conducting_date" in the data, or none of them (finds all flights). If everything is ok, it
+   returns a response with the requested data and response code status=200.
+
     ![search_flights1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/385c8269-42b5-4c1e-8f0c-1d0b071890f7)
    
     ![search_flights2](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/556637d6-4cd6-4f8f-932a-c72ad8b71880)
@@ -75,10 +97,21 @@ It is used in the log_in function. This function takes a given email and a boole
 
 4. show_flight (for Simple Users and Administrators):
 
+   Counts all the documents in the Flights collection which have both the given _id. If the result is 1, then it finds that
+   document, else it means there are either 0 or more than one documents with these credentials, so it responds accordingly. Then, it creates an entry (with the
+   needed info), which it returns in the response, as well as showing each of its fields seperately. If everything is ok, it returns a
+   response with the requested data and response code status=200.
+
    ![show_flight1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/20c7a73a-ae13-45ec-8a5a-5a248f66cbe5)
 
 
 5. make_reservation (for Simple Users and Administrators):
+
+   Counts all the documents in the Flights collection which have both the given fid. If the result is 1, then it finds that
+   document, else it means there are either 0 or more than one documents with these credentials, so it responds accordingly. Then, if the ticket_type of this
+   document is business, it decreases the ticket_num_business by 1 (by updating the document with the given fid), else if the ticket_type is economy, it
+   decreases the ticcket_num_economy by 1 (by updating the document with the given fid). Afterwards, it creates an entry (with the
+   needed info), which it inserts in the Reservations collection. If everything is ok, it returns a response with the requested data and response code status=200.
 
     ![make_res1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/2fe84972-27b5-468d-b3db-9759db1c6da9)
 
@@ -87,10 +120,23 @@ It is used in the log_in function. This function takes a given email and a boole
 
 6. show_my_reservations (for Simple Users and Administrators):
 
+   Counts all the documents in the Reservations collection which have both the same email, as the one we take from the entry in the live_sessions dictionary,
+   with the users unique ID (from the header), as its key (in admin or simple). If the result is greater than 0, then it finds all the documents with this email
+   and puts the returned cursor in my_reservations. It then iterates through it with a for loop and
+   for each document, it creates and appends a diffrent entry (with the needed info) to the reservations_list, which it returns through the response. If
+   everything is ok, it returns a response with the requested data and response code status=200.
+
     ![show_my_res1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/132d9794-ded9-41d9-bd6f-84aa951ad549)
 
 
 7. show_reservation (for Simple Users and Administrators):
+
+   Counts all the documents in the Reservations collection which have both the given id. If the result is 1, then it finds that
+   document, else it means there are either 0 or more than one documents with these credentials, so it responds accordingly. It does the same for the fid it
+   extracts from that documetn, to check if the flight id is valid. Then, it also fins the corresponding document from the flights collection, so it can respond
+   with all the needed info. So, it creates an entry (with the needed info), which it puts in the response, both all together and seperately. If everything is
+   ok, it returns a response with the requested data and response code status=200.
+
 
     ![show_res1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/c2098f8a-1dd3-415e-acce-360bde5b06fd)
 
