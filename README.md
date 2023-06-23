@@ -8,26 +8,29 @@
 - The Postman REST API Client Software was used to make the requests to the server, in the following example.
 
 1. Git Bash to your desired directory and clone this repository there with the "git clone https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios" command.
+
 2. Open a cmd or powershell window and "cd" with the write path, inside the "DigitalAirlinesFiles" directory.
+
 3. Execute the command "docker-compose up -d" (May take a few seconds).
+   
 4. Make your Database:
     1. If you want to use the data that are provided in the JSON files (users, reservations, flights), then:
        1. Execute the command "docker cp flask/data/users.json mongodb:/users.json && docker cp flask/data/flights.json mongodb:/flights.json && docker cp
            flask/data/reservations.json mongodb:/reservations.json"
        2. Then, execute the command "docker exec -it mongodb mongoimport --db=DigitalAirlines --collection=Users --file=users.json && docker exec -it mongodb
            mongoimport --db=DigitalAirlines --collection=Flights --file=flights.json && docker exec -it mongodb mongoimport --db=DigitalAirlines --
-           collection=Reservations --file=reservations.json
-       
+           collection=Reservations --file=reservations.json       
        (If you have a Duplicate Key Error, it means some IDs from the JSON files have already been used. Change the IDs in the JSON files into valid, non-used
         ones, save changes and repeat step 4)
-     3. If you want empty collections to add data to them yourself, then:
+     2. If you want empty collections to add data to them yourself, then:
            1. Delete all content from the JSON files and save your changes.
            2. Execute the command "docker cp flask/data/users.json mongodb:/users.json && docker cp flask/data/flights.json mongodb:/flights.json && docker cp
            flask/data/reservations.json mongodb:/reservations.json"
            3. Then, execute the command "docker exec -it mongodb mongoimport --db=DigitalAirlines --collection=Users --file=users.json && docker exec -it mongodb
            mongoimport --db=DigitalAirlines --collection=Flights --file=flights.json && docker exec -it mongodb mongoimport --db=DigitalAirlines --
            collection=Reservations --file=reservations.json"
-6. (Optional / If you have no Admins) The Web Service doesn't provide a way to sing up Administrators. If you want to add Administrator Users, use the Mongo Shell:
+
+5. (Optional / If you have no Admins) The Web Service doesn't provide a way to sing up Administrators. If you want to add Administrator Users, use the Mongo Shell:
    1. Execute the command "docker exec -it mongodb mongosh --port 27017" (Mongo Shell command prompt will open)
    2. Execute the command "use DigitalAirlines"
    3. Add your Administrator accounts to the Users collection. Example:
@@ -44,7 +47,8 @@
        "date_of_birth":[{"day":{"$numberInt":"01"},"month":"January","year":{"$numberInt":"1999"}}],
        "origin_country":"Greece","passport_number":{"$numberInt":"555555555"},"category":"administrator"})"
      - [ Us 3 as Admins ;) ]
-7. Make Requests and see Responses! The Postman Software was used in the following example.
+
+6. Make Requests and see Responses! The Postman Software was used in the following example.
 
 
 # Analysis and Examples:
@@ -183,9 +187,9 @@ Each function checks if the given data is valid (which is passed through, with e
    with the one in economy_price), else if both are in the data, it updates both. If everything is ok, it returns a response with the requested data and response 
    code status=200.
 
-    ![update_price1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/70b3a2e7-6191-437e-bd24-dae6b8e8ae3a)
+![update_price1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/3ca7202e-2c52-4ec9-babf-f9eb32e3cab6)
 
-    ![update_price2](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/46a4c32b-6d1e-47e6-8d33-5e554e3b659c)
+![update_price2](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/a293d4e3-c611-42a5-99e2-97b0ac3a05f0)
 
 
 11. delete_flight (for Administrators):
@@ -197,9 +201,9 @@ Each function checks if the given data is valid (which is passed through, with e
    flight exists and it can't deleted. But, if it is not greater than zero, it deletes the flight with the given id from thr Flights collection. If everything is 
    ok, it returns a response with the requested data and response code status=200.
 
-    ![delete_flight1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/cb35e4a9-53c7-4ea8-8600-d8bf52045f32)
+![delete_flight1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/8f9be2c5-d4f1-4eec-8bf2-d467d0f4534c)
 
-    ![delete_flight2](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/51f70109-4432-41f2-8ca1-df94cd570137)
+![delete_flight2](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/b839198e-e302-4577-8f2c-a6d562041b93)
 
 
 12. display_flight (for Administrators):
@@ -216,7 +220,7 @@ Each function checks if the given data is valid (which is passed through, with e
    seperately (Departure Airport, Final Destination Airport, Total Number of All Tickets, etc.), as well as the res_list as it is in the end (turned into a 
    string of course, since response only accepts strings). If everything is ok, it returns a response with the requested data and response code status=200.
 
-    ![diplay_flight1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/0deb45ec-872d-446f-bb06-c609918d4c4f)
+![diplay_flight1](https://github.com/SotirisDimitrakoulakos/YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios/assets/116378407/e016d599-e607-4dd2-bea9-4174bd200e18)
 
 
 13. log_out (for Simple Users and Administrators):
