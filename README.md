@@ -1,5 +1,7 @@
-# YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios
-# Digital Airlines Information System
+# *YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios*
+# *      Digital Airlines Information System*
+
+
 
 
 # How to Execute:
