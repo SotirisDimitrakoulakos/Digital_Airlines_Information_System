@@ -13,7 +13,7 @@ sys.path.append('./data')
 mdb_hostname = os.environ.get("MONGO_HOSTNAME", "localhost")
 client = MongoClient('mongodb://'+mdb_hostname+':27017/')
 
-# Choose InfoSys database
+# Choose DigitalAirlines database
 db = client['DigitalAirlines']
 users = db['Users']
 flights = db['Flights']
