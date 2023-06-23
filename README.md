@@ -1,5 +1,5 @@
 # *YpoxreotikiErgasia23_E20040_Dimitrakoulakos_Sotirios*
-# *      Digital Airlines Information System*
+# * Digital Airlines Information System *
 
 
 
