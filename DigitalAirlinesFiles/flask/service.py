@@ -1,11 +1,17 @@
+from bson import ObjectId
 from pymongo import MongoClient
-from flask import Flask, request, jsonify, Response
-from datetime import timedelta
+from pymongo.errors import DuplicateKeyError
+from flask import Flask, request, redirect, Response
+import os
+import sys
 import json
 import uuid
 
+sys.path.append('./data')
+
 # Connect to our local MongoDB
-client = MongoClient('mongodb://localhost:27017/')
+mdb_hostname = os.environ.get("MONGO_HOSTNAME", "localhost")
+client = MongoClient('mongodb://'+mdb_hostname+':27017/')
 
 # Choose InfoSys database
 db = client['DigitalAirlines']
@@ -15,9 +21,6 @@ reservations = db['Reservations']
 
 # Initiate Flask App
 app = Flask(__name__)
-
-# Each session lasts 10 minues
-app.permanent_session_lifetime = timedelta(minutes=10)
 
 # Dictionary of Live Sessions (Users Logged-In)
 live_sessions = {"admin": {}, "simple": {}}
@@ -30,7 +33,7 @@ def create_session(email, role_admin):
         live_sessions['admin'][userID] = email
     else:
         live_sessions['simple'][userID] = email
-    return True
+    return userID
 
 
 # Simple User Sign-Up
@@ -45,11 +48,11 @@ def sign_up():
     if data == None:
         return Response("Bad Request", status=500, mimetype='application/json')
 
-    if not "username" in data or not "sirname" in data or not "email" in data or not "password" in data or not\
-            "date_of_birth" in data or not "origin_country" in data or not "passport_number" in data:
+    if not "username" in data or not "sirname" in data or not "email" in data or not "entr_password" in data or\
+            not "date_of_birth" in data or not "origin_country" in data or not "passport_number" in data:
         return Response("Information Incomplete", status=500, mimetype="application/json")
 
-    if (users.find({"email": data['email']}).count() == 0) and (users.find({"username": data['username']}).count() == 0):
+    if users.count_documents({"email": data["email"]}) == 0 and users.count_documents({"username": data["username"]}) == 0:
         simple_user = {"username": data['username'], "sirname": data['sirname'], "email": data['email'],
                        "entr_password": data['entr_password'], "date_of_birth": data['date_of_birth'],
                        "origin_country": data['origin_country'], "passport_number": data['passport_number'],
@@ -76,13 +79,13 @@ def log_in():
     if not "email" in data or not "entr_password" in data:
         return Response("Information Incomplete", status=500, mimetype="application/json")
 
-    if users.find({"$and": [{"email": data['email']}, {"entr_password": data['entr_password']}]}).count() == 1:
+    if users.count_documents({"$and": [{"email": data['email']}, {"entr_password": data['entr_password']}]}) == 1:
         user = users.find_one({"$and": [{"email": data['email']}, {"entr_password": data['entr_password']}]})
         if user['category'] == "administrator":
-            create_session(data['email'], True)
+            sessionid = create_session(data['email'], True)
         elif user['category'] == "simple":
-            create_session(data['email'], False)
-        return Response("User Logged-In.", status=200, mimetype='application/json')
+            sessionid = create_session(data['email'], False)
+        return Response("User Logged-In with User-Session ID: " + str(sessionid), status=200, mimetype='application/json')
     else:
         return Response("Re-enter your credentials. Entered Email or Password does not exist or it is registered "
                         "multiple times (invalid)", status=400, mimetype='application/json')
@@ -91,7 +94,7 @@ def log_in():
 # Search Flights (for both Simple Users and Administrators)
 @app.route('/search_flights', methods=['GET'])
 def search_flights():
-    userID = request.headers.get('authorization')
+    userID = request.headers.get('user_ID')
     data = None
 
     try:
@@ -107,9 +110,9 @@ def search_flights():
     else:
         if userID in live_sessions['admin'] or userID in live_sessions['simple']:
             if "from_airport" in data and "to_airport" in data and "conducting_date" in data:
-                if flights.find({"$and": [{"from_airport": data['from_airport']},
+                if flights.count_documents({"$and": [{"from_airport": data['from_airport']},
                                           {"to_airport": data['to_airport']},
-                                          {"conducting_date": data['conducting_date']}]}).count() > 0:
+                                          {"conducting_date": data['conducting_date']}]}) > 0:
                     my_flights = flights.find({"$and": [{"from_airport": data['from_airport']},
                                                  {"to_airport": data['to_airport']},
                                                  {"conducting_date": data['conducting_date']}]})
@@ -118,45 +121,45 @@ def search_flights():
                         flight = {"_id": str(i['_id']), "conducting_date": i['conducting_date'],
                                   "from_airport": i['from_airport'], "to_airport": i['to_airport']}
                         flight_list.append(flight)
-                    return Response("Flights:" + jsonify(flight_list), status=200, mimetype='application/json')
+                    return Response("Flights:\n" + str(flight_list), status=200, mimetype='application/json')
                 else:
                     return Response("No flights with these conditions are registered",
                                     status=500, mimetype='application/json')
-            elif "from_airport" in data and "to_airport":
-                if flights.find({"$and": [{"from_airport": data['from_airport']},
-                                          {"to_airport": data['to_airport']}]}).count() > 0:
+            elif "from_airport" in data and "to_airport" in data:
+                if flights.count_documents({"$and": [{"from_airport": data['from_airport']},
+                                          {"to_airport": data['to_airport']}]}) > 0:
                     my_flights = flights.find({"$and": [{"from_airport": data['from_airport']},
-                                                 {"to_airport": data['to_airport']},]})
+                                                 {"to_airport": data['to_airport']}]})
                     flight_list = []
                     for i in my_flights:
                         flight = {"_id": str(i['_id']), "conducting_date": i['conducting_date'],
                                   "from_airport": i['from_airport'], "to_airport": i['to_airport']}
                         flight_list.append(flight)
-                    return Response("Flights:" + jsonify(flight_list), status=200, mimetype='application/json')
+                    return Response("Flights:\n" + str(flight_list), status=200, mimetype='application/json')
                 else:
                     return Response("No flights with these conditions are registered",
                                     status=500, mimetype='application/json')
             elif "conducting_date" in data:
-                if flights.find({"conducting_date": data['conducting_date']}).count() > 0:
+                if flights.count_documents({"conducting_date": data['conducting_date']}) > 0:
                     my_flights = flights.find({"conducting_date": data['conducting_date']})
                     flight_list = []
                     for i in my_flights:
                         flight = {"_id": str(i['_id']), "conducting_date": i['conducting_date'],
                                   "from_airport": i['from_airport'], "to_airport": i['to_airport']}
                         flight_list.append(flight)
-                    return Response("Flights:" + jsonify(flight_list), status=200, mimetype='application/json')
+                    return Response("Flights:\n" + str(flight_list), status=200, mimetype='application/json')
                 else:
                     return Response("No flights with these conditions are registered",
                                     status=500, mimetype='application/json')
             else:
-                if flights.find({}).count() > 0:
+                if flights.count_documents({}) > 0:
                     my_flights = flights.find({})
                     flight_list = []
                     for i in my_flights:
                         flight = {"_id": str(i['_id']), "conducting_date": i['conducting_date'],
                                   "from_airport": i['from_airport'], "to_airport": i['to_airport']}
                         flight_list.append(flight)
-                    return Response("Flights:" + jsonify(flight_list), status=200, mimetype='application/json')
+                    return Response("Flights:\n" + str(flight_list), status=200, mimetype='application/json')
                 else:
                     return Response("No flights registered", status=500, mimetype='application/json')
         else:
@@ -164,32 +167,30 @@ def search_flights():
 
 
 # Show Flight Details
-@app.route('/show_flight/<id>', methods=['GET'])
-def show_flight(id):
-    userID = request.headers.get('authorization')
+@app.route('/show_flight/<my_id>', methods=['GET'])
+def show_flight(my_id):
+    userID = request.headers.get('user_ID')
 
-    if id == None:
+    if my_id == None:
         return Response("Bad Request", status=500, mimetype='application/json')
 
     if userID == None:
         return Response("Bad Header Request", status=500, mimetype='application/json')
     else:
         if userID in live_sessions['admin'] or userID in live_sessions['simple']:
-            if flights.find({"_id": str(id)}).count() == 1:
-                i = flights.find_one({"_id": (id)})
+            if flights.count_documents({"_id": ObjectId(my_id)}) == 1:
+                i = flights.find_one({"_id": ObjectId(my_id)})
                 flight = {"_id": str(i['_id']), "conducting_date": i['conducting_date'],
                           "from_airport": i['from_airport'], "to_airport": i['to_airport'],
-                          "ticket_num": {"business": i['ticket_num']['business'],
-                                       "economy": i['ticket_num']['economy']},
-                          "ticket_price": {"business": i['ticket_price']['business'],
-                                         "economy": i['ticket_price']['economy']}}
-                return Response("Flight:" + jsonify(flight) + "\n\nDeparture Airport: " +
+                          "ticket_num_business": i['ticket_num_business'], "ticket_num_economy": i['ticket_num_economy'],
+                           "ticket_price_business": i['ticket_price_business'], "ticket_price_economy": i['ticket_price_economy']}
+                return Response("Flight:" + str(flight) + "\n\nDeparture Airport: " +
                                 str(flight['from_airport']) + "\nFinal Destination Airport: " +
                                 str(flight['to_airport']) + "\nNumber of tickets available: \n\tBusiness Tickets: " +
-                                str(flight['ticket_num']['business']) + "\n\tEconomy Tickets: " +
-                                str(flight['ticket_num']['economy']) + "\nPrice of tickets: \n\tBusiness Tickets: " +
-                                str(flight['ticket_price']['business']) + "\n\tEconomy Tickets: " +
-                                str(flight['ticket_price']['economy']), status=200, mimetype='application/json')
+                                str(flight['ticket_num_business']) + "\n\tEconomy Tickets: " +
+                                str(flight['ticket_num_economy']) + "\nPrice of tickets: \n\tBusiness Tickets: " +
+                                str(flight['ticket_price_business']) + "\n\tEconomy Tickets: " +
+                                str(flight['ticket_price_economy']), status=200, mimetype='application/json')
             else:
                 return Response("No valid flight with this id", status=500, mimetype='application/json')
         else:
@@ -199,7 +200,7 @@ def show_flight(id):
 # Reserve Ticket
 @app.route('/make_reservation', methods=['POST'])
 def make_reservation():
-    userID = request.headers.get('authorization')
+    userID = request.headers.get('user_ID')
     data = None
 
     try:
@@ -218,14 +219,14 @@ def make_reservation():
         return Response("Information Incomplete", status=500, mimetype="application/json")
 
     if userID in live_sessions['admin'] or userID in live_sessions['simple']:
-        if flights.find({"_id": str(data['fid'])}).count() == 1:
-            my_flight = flights.find_one({"_id": str(data['fid'])})
+        if flights.count_documents({"_id": ObjectId(data['fid'])}) == 1:
+            my_flight = flights.find_one({"_id": ObjectId(data['fid'])})
             if data['ticket_type'] == "business":
-                flights.update_one({"_id": str(my_flight['_id'])},
-                                   {'$set': {"ticket_num": {"business": int(my_flight['ticket_num']['business']) - 1}}})
+                flights.update_one({"_id": ObjectId(my_flight['_id'])},
+                                   {'$set': {"ticket_num_business": int(my_flight['ticket_num_business']) - 1}})
             elif data['ticket_type'] == "economy":
-                flights.update_one({"_id": str(my_flight['_id'])},
-                                   {'$set': {"ticket_num": {"economy": int(my_flight['ticket_num']['economy']) - 1}}})
+                flights.update_one({"_id": ObjectId(my_flight['_id'])},
+                                   {'$set': {"ticket_num_economy": int(my_flight['ticket_num_economy']) - 1}})
             else:
                 Response("Invalid ticket type", status=500, mimetype='application/json')
             ticket_res = {"flight_id": str(data['fid']), "name": data['name'], "sirname": data['sirname'],
@@ -242,7 +243,7 @@ def make_reservation():
 # Show User Reservations
 @app.route('/show_my_reservations', methods=['GET'])
 def show_my_reservations():
-    userID = request.headers.get('authorization')
+    userID = request.headers.get('user_ID')
 
     if userID == None:
         return Response("Bad Header Request", status=500, mimetype='application/json')
@@ -251,7 +252,7 @@ def show_my_reservations():
     elif userID in live_sessions['simple']: user_email = live_sessions['simple'][userID]
     else: Response("Rogue User!", status=401, mimetype='application/json')
 
-    if reservations.find({"email": user_email}) > 0:
+    if reservations.count_documents({"email": user_email}) > 0:
         my_reservations = reservations.find({"email": user_email})
         reservations_list = []
         for i in my_reservations:
@@ -259,34 +260,34 @@ def show_my_reservations():
                       "passport_number": i['passport_number'], "date_of_birth": i['date_of_birth'],
                       "email": i['email'], "ticket_type": i['ticket_type']}
             reservations_list.append(reservation)
-        return Response("Reservations:" + jsonify(reservations_list), status=200, mimetype='application/json')
+        return Response("Reservations:" + str(reservations_list), status=200, mimetype='application/json')
     else:
         return Response("No reservations for this user", status=500, mimetype='application/json')
 
 
 # Show Reservation Details
-@app.route('/show_reservation/<id>', methods=['GET'])
-def show_reservation(id):
-    userID = request.headers.get('authorization')
+@app.route('/show_reservation/<my_id>', methods=['GET'])
+def show_reservation(my_id):
+    userID = request.headers.get('user_ID')
 
-    if id == None:
+    if my_id == None:
         return Response("Bad Request", status=500, mimetype='application/json')
 
     if userID == None:
         return Response("Bad Header Request", status=500, mimetype='application/json')
     else:
         if userID in live_sessions['admin'] or userID in live_sessions['simple']:
-            if reservations.find({"_id": str(id)}).count() == 1:
-                i = reservations.find_one({"_id": str(id)})
+            if reservations.count_documents({"_id": ObjectId(my_id)}) == 1:
+                i = reservations.find_one({"_id": ObjectId(my_id)})
                 flightID = i['flight_id']
-                if flights.find({"_id": str(flightID)}).count() == 1:
-                    j = flights.find_one({"_id": str(flightID)})
+                if flights.count_documents({"_id": ObjectId(flightID)}) == 1:
+                    j = flights.find_one({"_id": ObjectId(flightID)})
                     reservation_details = {"from_airport": j['from_airport'], "to_airport": j['to_airport'],
                                            "conducting_date": j['conducting_date'], "name": i['name'],
                                            "sirname": i['sirname'], "passport_number": i['passport_number'],
                                            "date_of_birth": i['date_of_birth'], "email": i['email'],
                                            "ticket_type": i['ticket_type']}
-                    return Response("Reservation Details:" + jsonify(reservation_details) + "\n\nDeparture Airport: " +
+                    return Response("Reservation Details:" + str(reservation_details) + "\n\nDeparture Airport: " +
                                     str(reservation_details['from_airport']) + "\nFinal Destination Airport: " +
                                     str(reservation_details['to_airport']) + "\nConducting Date: " +
                                     str(reservation_details['conducting_date']) + "\nName: " +
@@ -305,33 +306,31 @@ def show_reservation(id):
 
 
 # Cancel Reservation
-@app.route('/cancel_reservation/<id>', methods=['DELETE'])
-def cancel_reservation(id):
-    userID = request.headers.get('authorization')
+@app.route('/cancel_reservation/<my_id>', methods=['DELETE'])
+def cancel_reservation(my_id):
+    userID = request.headers.get('user_ID')
 
-    if id == None:
+    if my_id == None:
         return Response("Bad Request", status=500, mimetype='application/json')
 
     if userID == None:
         return Response("Bad Header Request", status=500, mimetype='application/json')
     else:
         if userID in live_sessions['admin'] or userID in live_sessions['simple']:
-            if reservations.find({"_id": str(id)}).count() == 1:
-                i = reservations.find_one({"_id": str(id)})
+            if reservations.count_documents({"_id": ObjectId(my_id)}) == 1:
+                i = reservations.find_one({"_id": ObjectId(my_id)})
                 flightID = i['flight_id']
-                if flights.find({"_id": str(flightID)}).count() == 1:
-                    my_flight = flights.find_one({"_id": str(flightID)})
+                if flights.count_documents({"_id": ObjectId(flightID)}) == 1:
+                    my_flight = flights.find_one({"_id": ObjectId(flightID)})
                     if i['ticket_type'] == "business":
-                        flights.update_one({"_id": str(flightID)}, {
-                            '$set': {"ticket_num": {"business": int(my_flight['ticket_num']['business']) + 1}}})
+                        flights.update_one({"_id": ObjectId(flightID)}, {
+                            '$set': {"ticket_num_business": int(my_flight['ticket_num_business']) + 1}})
                     elif i['ticket_type'] == "economy":
-                        flights.update_one({"_id": str(flightID)}, {
-                            '$set': {"ticket_num": {"economy": int(my_flight['ticket_num']['economy']) + 1}}})
+                        flights.update_one({"_id": ObjectId(flightID)}, {
+                            '$set': {"ticket_num_economy": int(my_flight['ticket_num_economy']) + 1}})
                     else:
                         Response("Invalid ticket type", status=500, mimetype='application/json')
-                    for j, res in enumerate(reservations):
-                        if res['_id'] == id:
-                            del res[j]
+                    reservations.delete_one({"_id": ObjectId(my_id)})
                     return Response("Reservation Cancelled", status=200,
                                     mimetype='application/json')
                 else:
@@ -345,7 +344,7 @@ def cancel_reservation(id):
 # Administrator Function: Make Flight
 @app.route('/make_flight', methods=['POST'])
 def make_flight():
-    userID = request.headers.get('authorization')
+    userID = request.headers.get('user_ID')
     data = None
 
     try:
@@ -360,15 +359,15 @@ def make_flight():
         return Response("Bad Header Request", status=500, mimetype='application/json')
 
     if not "from_airport" in data or not "to_airport" in data or not "conducting_date" in data or \
-            not "ticket_num" in data or not "ticket_price" in data or not "business" in data['ticket_num'] or \
-            not "economy" in data['ticket_num'] or not "business" in data['ticket_price'] or \
-            not "economy" in data['ticket_price']:
+            not "ticket_num_business" in data or not "ticket_num_economy" in data or\
+            not "ticket_price_business" in data or not "ticket_price_economy" in data:
         return Response("Information Incomplete", status=500, mimetype="application/json")
 
     if userID in live_sessions['admin']:
         new_flight = {"from_airport": data['from_airport'], "to_airport": data['to_airport'],
-                      "conducting_date": data['conducting_date'], "ticket_num": data['ticket_num'],
-                      "ticket_price": data['ticket_price']}
+                      "conducting_date": data['conducting_date'], "ticket_num_business": data['ticket_num_business'],
+                      "ticket_num_economy": data['ticket_num_economy'], "ticket_price_business": data['ticket_price_business'],
+                      "ticket_price_economy": data['ticket_price_economy']}
         flights.insert_one(new_flight)
         return Response("Flight was made", status=200, mimetype='application/json')
     elif userID in live_sessions['simple']:
@@ -379,9 +378,9 @@ def make_flight():
 
 
 # Administrator Function: Update Flight Ticket Price
-@app.route('/update_price', methods=['PATCH'])
-def update_price():
-    userID = request.headers.get('authorization')
+@app.route('/update_price/<my_id>', methods=['PATCH'])
+def update_price(my_id):
+    userID = request.headers.get('user_ID')
     data = None
 
     try:
@@ -392,17 +391,23 @@ def update_price():
     if data == None:
         return Response("Bad Request", status=500, mimetype='application/json')
 
+    if my_id == None:
+        return Response("Bad Request", status=500, mimetype='application/json')
+
     if userID == None:
         return Response("Bad Header Request", status=500, mimetype='application/json')
 
     if userID in live_sessions['admin']:
         if "business_price" in data and "economy_price" in data:
-            flights.update_many({}, {"and": [{"$set": {"ticket_price": {"business": data['business_price']}}},
-                                             {"$set": {"ticket_price": {"economy": data['economy_price']}}}]})
+            flights.update_one({"_id": ObjectId(my_id)}, {"and": [{"$set": {"ticket_price_business": data['business_price']}},
+                                             {"$set": {"ticket_price_economy": data['economy_price']}}]})
+            return Response("Price Updated", status=200, mimetype="application/json")
         elif "business_price" in data:
-            flights.update_many({}, {"$set": {"ticket_price": {"business": data['business_price']}}})
+            flights.update_one({"_id": ObjectId(my_id)}, {"$set": {"ticket_price_business": data['business_price']}})
+            return Response("Price Updated", status=200, mimetype="application/json")
         elif "economy_price" in data:
-            flights.update_many({}, {"$set": {"ticket_price": {"economy": data['economy_price']}}})
+            flights.update_one({"_id": ObjectId(my_id)}, {"$set": {"ticket_price_economy": data['economy_price']}})
+            return Response("Price Updated", status=200, mimetype="application/json")
         else:
             return Response("Information Incomplete", status=500, mimetype="application/json")
     elif userID in live_sessions['simple']:
@@ -413,24 +418,22 @@ def update_price():
 
 
 # Administrator Function: Delete Flight
-@app.route('/delete_flight/<id>', methods=['DELETE'])
-def delete_flight(id):
-    userID = request.headers.get('authorization')
+@app.route('/delete_flight/<my_id>', methods=['DELETE'])
+def delete_flight(my_id):
+    userID = request.headers.get('user_ID')
 
-    if id == None:
+    if my_id == None:
         return Response("Bad Request", status=500, mimetype='application/json')
 
     if userID == None:
         return Response("Bad Header Request", status=500, mimetype='application/json')
     else:
         if userID in live_sessions['admin']:
-            if flights.find({"_id": str(id)}).count() == 1:
-                if reservations.find({"flight_id": str(id)}).count() > 0:
+            if flights.count_documents({"_id": ObjectId(my_id)}) == 1:
+                if reservations.count_documents({"flight_id": my_id}) > 0:
                     Response("Reservation for this flight exists.", status=500, mimetype='application/json')
                 else:
-                    for j, fl in enumerate(flights):
-                        if fl['_id'] == id:
-                            del fl[j]
+                    flights.delete_one({"_id": ObjectId(my_id)})
                     return Response("Flight Deleted", status=200, mimetype='application/json')
             else:
                 return Response("No valid flight with this id", status=500, mimetype='application/json')
@@ -442,27 +445,27 @@ def delete_flight(id):
 
 
 # Administrator Function: Display Flight Details
-@app.route('/display_flight/<id>', methods=['GET'])
-def display_flight(id):
-    userID = request.headers.get('authorization')
+@app.route('/display_flight/<my_id>', methods=['GET'])
+def display_flight(my_id):
+    userID = request.headers.get('user_ID')
 
-    if id == None:
+    if my_id == None:
         return Response("Bad Request", status=500, mimetype='application/json')
 
     if userID == None:
         return Response("Bad Header Request", status=500, mimetype='application/json')
     else:
         if userID in live_sessions['admin']:
-            if flights.find({"_id": str(id)}).count() == 1:
-                i = flights.find_one({"_id": (id)})
-                reserved_tickets_bis = reservations.find({"$and": [{"flight_id": str(id)},
-                                                                   {"ticket_type": "business"}]}).count()
-                reserved_tickets_eco = reservations.find({"$and": [{"flight_id": str(id)},
-                                                                   {"ticket_type": "economy"}]}).count()
-                total_tickets_bis = int(i['ticket_num']['business']) + reserved_tickets_bis
-                total_tickets_eco = int(i['ticket_num']['economy']) + reserved_tickets_eco
+            if flights.count_documents({"_id": ObjectId(my_id)}) == 1:
+                i = flights.find_one({"_id": ObjectId(my_id)})
+                reserved_tickets_bis = reservations.count_documents({"$and": [{"flight_id": my_id},
+                                                                   {"ticket_type": "business"}]})
+                reserved_tickets_eco = reservations.count_documents({"$and": [{"flight_id": my_id},
+                                                                   {"ticket_type": "economy"}]})
+                total_tickets_bis = int(i['ticket_num_business']) + reserved_tickets_bis
+                total_tickets_eco = int(i['ticket_num_economy']) + reserved_tickets_eco
                 total_tickets_all = total_tickets_bis + total_tickets_eco
-                my_reservations = reservations.find({"flight_id": str(id)})
+                my_reservations = reservations.find({"flight_id": my_id})
                 res_list = []
                 for r in my_reservations:
                     res = {"name": r['name'], "sirname": r['sirname'], "ticket_type": r['ticket_type']}
@@ -471,12 +474,12 @@ def display_flight(id):
                                 str(i['to_airport']) + "\nTotal Number of All Tickets:" + str(total_tickets_all) +
                                 "\n\tTotal Number of Business Tickets: " + str(total_tickets_bis) +
                                 "\n\tTotal Number of Economy Tickets: " + str(total_tickets_eco) +
-                                "\nTicket Price: \n\tBusiness Tickets Price: " + str(i['ticket_price']['business']) +
-                                "\n\tEconomy Tickets Price: " + str(i['ticket_price']['economy']) +
-                                "\nAvailable Number of Tickets: " + str(int(i['ticket_num']['business']) +
-                                int(i['ticket_num']['economy'])) + "\n\tAvailable Number of Business Tickets: " +
-                                str(i['ticket_num']['business']) + "\n\tAvailable Number of Economy Tickets: " +
-                                str(i['ticket_num']['economy']) + "\n\nList of Reservation Details:\n" + jsonify(res_list),
+                                "\nTicket Price: \n\tBusiness Tickets Price: " + str(i['ticket_price_business']) +
+                                "\n\tEconomy Tickets Price: " + str(i['ticket_price_economy']) +
+                                "\nAvailable Number of Tickets: " + str(int(i['ticket_num_business']) +
+                                int(i['ticket_num_economy'])) + "\n\tAvailable Number of Business Tickets: " +
+                                str(i['ticket_num_business']) + "\n\tAvailable Number of Economy Tickets: " +
+                                str(i['ticket_num_economy']) + "\n\nList of Reservation Details:\n" + str(res_list),
                                 status=200, mimetype='application/json')
             else:
                 return Response("No valid flight with this id", status=500, mimetype='application/json')
@@ -490,7 +493,7 @@ def display_flight(id):
 # User Log-out
 @app.route('/log_out', methods=['DELETE'])
 def log_out():
-    userID = request.headers.get('authorization')
+    userID = request.headers.get('user_ID')
 
     if userID == None:
         return Response("Bad Header Request", status=500, mimetype='application/json')
@@ -508,7 +511,7 @@ def log_out():
 # User Delete Account
 @app.route('/delete_account', methods=['DELETE'])
 def delete_account():
-    userID = request.headers.get('authorization')
+    userID = request.headers.get('user_ID')
 
     if userID == None:
         return Response("Bad Header Request", status=500, mimetype='application/json')
