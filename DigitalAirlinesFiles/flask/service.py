@@ -535,5 +535,5 @@ if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
 
 
-# Testing was done with the help of test_api.py (changed accordingly for the purposes of the Project) from GitHub.
+# Testing was done with the help of Postman Software.
 # The project is uploaded on GitHub, in a private repository.
